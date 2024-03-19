@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:chat_app/widgets/user_image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import "package:firebase_auth/firebase_auth.dart";
 
@@ -17,6 +21,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String _enteredEmail = '';
   String _enteredPassword = '';
+  File? _selectedImage;
+  bool? _isAuthenticating;
+
+  void _selectUserImage(File imageFile) {
+    _selectedImage = imageFile;
+  }
 
   void _submit() async {
     final isValid = _formKey.currentState!.validate();
@@ -31,8 +41,28 @@ class _AuthScreenState extends State<AuthScreen> {
           final userCredential = await _fireBase.signInWithEmailAndPassword(
               email: _enteredEmail, password: _enteredPassword);
         } else {
-          await _fireBase.createUserWithEmailAndPassword(
+          if (_selectedImage == null) {
+            return;
+          }
+
+          setState(() {
+            _isAuthenticating = true;
+          });
+
+          final userCredential = await _fireBase.createUserWithEmailAndPassword(
               email: _enteredEmail, password: _enteredPassword);
+
+          final storageRef = FirebaseStorage.instance
+              .ref()
+              .child('user_images')
+              .child('${userCredential.user!.uid}.jpg');
+
+          await storageRef.putFile(_selectedImage!);
+          final imageUrl = await storageRef.getDownloadURL();
+
+          setState(() {
+            _isAuthenticating = false;
+          });
         }
       } on FirebaseAuthException catch (error) {
         ScaffoldMessenger.of(context).clearSnackBars();
@@ -41,6 +71,10 @@ class _AuthScreenState extends State<AuthScreen> {
             content: Text(error.message ?? 'Authentication failed.'),
           ),
         );
+
+        setState(() {
+          _isAuthenticating = false;
+        });
       }
     }
   }
@@ -48,6 +82,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     _loginMode = true;
+    _isAuthenticating = false;
     super.initState();
   }
 
@@ -74,6 +109,8 @@ class _AuthScreenState extends State<AuthScreen> {
                       padding: const EdgeInsets.all(15),
                       child: Column(
                         children: [
+                          if (!_loginMode)
+                            UserImagePicker(selectUserImage: _selectUserImage),
                           TextFormField(
                             decoration: InputDecoration(
                               label: const Text("Email"),
@@ -114,11 +151,14 @@ class _AuthScreenState extends State<AuthScreen> {
                           const SizedBox(
                             height: 15,
                           ),
-                          FilledButton(
-                              onPressed: () {
-                                _submit();
-                              },
-                              child: Text(_loginMode ? "Login" : "Sign up")),
+                          _isAuthenticating!
+                              ? const CircularProgressIndicator()
+                              : FilledButton(
+                                  onPressed: () {
+                                    _submit();
+                                  },
+                                  child: Text(_loginMode ? "Login" : "Sign up"),
+                                ),
                           TextButton(
                             onPressed: () {
                               setState(() {
