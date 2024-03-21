@@ -1,3 +1,5 @@
+import 'package:chat_app/widgets/chat_message.dart';
+import 'package:chat_app/widgets/new_message.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -6,6 +8,7 @@ class ChatScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text("FlutterChat"),
         actions: [
           IconButton(
               onPressed: () {
@@ -14,8 +17,8 @@ class ChatScreen extends StatelessWidget {
               icon: const Icon(Icons.exit_to_app))
         ],
       ),
-      body: const Center(
-        child: Text("Your are logged in"),
+      body: Column(
+        children: [Expanded(child: ChatMessages()), NewMessage()],
       ),
     );
   }

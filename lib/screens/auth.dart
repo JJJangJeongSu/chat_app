@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:chat_app/widgets/user_image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import "package:firebase_auth/firebase_auth.dart";
@@ -21,6 +22,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String _enteredEmail = '';
   String _enteredPassword = '';
+  String _enteredUsername = '';
+
   File? _selectedImage;
   bool? _isAuthenticating;
 
@@ -33,8 +36,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (isValid) {
       _formKey.currentState!.save();
-      print(_enteredEmail);
-      print(_enteredPassword);
 
       try {
         if (_loginMode == true) {
@@ -59,6 +60,15 @@ class _AuthScreenState extends State<AuthScreen> {
 
           await storageRef.putFile(_selectedImage!);
           final imageUrl = await storageRef.getDownloadURL();
+
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .set({
+            'username': _enteredUsername,
+            'email': _enteredEmail,
+            'image_url': imageUrl
+          });
 
           setState(() {
             _isAuthenticating = false;
@@ -111,6 +121,26 @@ class _AuthScreenState extends State<AuthScreen> {
                         children: [
                           if (!_loginMode)
                             UserImagePicker(selectUserImage: _selectUserImage),
+                          if (!_loginMode)
+                            TextFormField(
+                              decoration: InputDecoration(
+                                label: const Text("Username"),
+                                labelStyle:
+                                    const TextStyle().copyWith(fontSize: 15),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 10),
+                              ),
+                              keyboardType: TextInputType.text,
+                              enableSuggestions: false,
+                              validator: (value) {
+                                if (value == null || value.trim().length < 5) {
+                                  return "Username should be at least 5 characters";
+                                }
+                              },
+                              onSaved: (newValue) {
+                                _enteredUsername = newValue!;
+                              },
+                            ),
                           TextFormField(
                             decoration: InputDecoration(
                               label: const Text("Email"),
@@ -120,6 +150,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   horizontal: 15, vertical: 10),
                             ),
                             keyboardType: TextInputType.emailAddress,
+                            enableSuggestions: false,
                             validator: (value) {
                               if (value == null ||
                                   value.trim().isEmpty ||
